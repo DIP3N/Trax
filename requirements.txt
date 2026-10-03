@@ -1,0 +1,35 @@
+
+# Backend framework
+fastapi
+uvicorn[standard]
+
+# Database
+sqlalchemy
+psycopg[binary]
+
+# Configuration
+python-dotenv
+
+# Data validation
+pydantic
+
+# Database migrations (for later use)
+alembic
+
+# HTTP client (for future integrations)
+httpx
+
+# Authentication (for future use)
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Scheduling (for reminders)
+apscheduler
+
+# Testing
+pytest
+pytest-cov
+
+
+
+psycopg[binary]
