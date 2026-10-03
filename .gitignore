@@ -1,3 +1,10 @@
 /.venv
+<<<<<<< HEAD
 __pycache__/
 node_modules/
+=======
+
+/trax-frontend
+
+.env
+>>>>>>> 589916ab14b1043eff3707ae105236a6463e93cc
