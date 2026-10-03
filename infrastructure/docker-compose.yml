@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: trax-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trax_db
+      POSTGRES_USER: trax_user
+      POSTGRES_PASSWORD: trax_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - trax_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  trax_postgres_data:
