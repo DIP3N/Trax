@@ -1,1 +1,5 @@
 /.venv
+
+/trax-frontend
+
+.env
