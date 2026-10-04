@@ -105,3 +105,10 @@ export function updateMilestone(milestoneId, updates) {
     body: JSON.stringify(updates),
   });
 }
+
+
+export function deleteMilestone(milestoneId) {
+  return apiRequest(`/milestones/${milestoneId}`, {
+    method: "DELETE",
+  });
+}

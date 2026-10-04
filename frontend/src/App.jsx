@@ -14,6 +14,7 @@ import {
   getTopicMilestones,
   createMilestone,
   updateMilestone,
+  deleteMilestone,
 } from "./services/api";
 
 function getLocalDate() {
@@ -318,6 +319,35 @@ function App() {
       );
     } catch (err) {
       setMilestoneError(err.message || "Failed to update milestone.");
+    }
+  };
+
+
+  const handleDeleteMilestone = async (milestoneId) => {
+    const milestone = milestones.find(
+      (item) => item.id === milestoneId
+    );
+
+    if (!milestone) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${milestone.title}"?`
+    );
+
+    if (!confirmed) return;
+
+    setMilestoneError("");
+
+    try {
+      await deleteMilestone(milestoneId);
+
+      setMilestones((current) =>
+        current.filter((item) => item.id !== milestoneId)
+      );
+    } catch (err) {
+      setMilestoneError(
+        err.message || "Failed to delete milestone."
+      );
     }
   };
 
@@ -1491,7 +1521,7 @@ function App() {
                           </span>
                         </div>
                       </div>
-
+                      
                       <div className="task-actions">
                         <select
                           value={milestone.status}
@@ -1506,6 +1536,14 @@ function App() {
                           <option value="in_progress">In Progress</option>
                           <option value="completed">Completed</option>
                         </select>
+
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => handleDeleteMilestone(milestone.id)}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </article>
                   ))}
