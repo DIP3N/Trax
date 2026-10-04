@@ -330,6 +330,31 @@ def create_milestone(
     return milestone
 
 
+@app.delete("/milestones/{milestone_id}")
+def delete_milestone(
+    milestone_id: int,
+    db: Session = Depends(get_db),
+):
+    milestone = db.get(Milestone, milestone_id)
+
+    if not milestone:
+        raise HTTPException(
+            status_code=404,
+            detail="Milestone not found",
+        )
+
+    try:
+        db.delete(milestone)
+        db.commit()
+
+        return {
+            "message": "Milestone deleted successfully",
+            "id": milestone_id,
+        }
+    except Exception:
+        db.rollback()
+        raise
+
 @app.get(
     "/topics/{topic_id}/milestones",
     response_model=list[MilestoneResponse],
