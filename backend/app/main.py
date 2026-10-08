@@ -1,9 +1,11 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,6 +22,11 @@ from app.schemas.schemas import (
     MilestoneUpdate,
     MilestoneResponse,
 )
+
+
+class AssistantChatRequest(BaseModel):
+    message: str
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +54,161 @@ app.add_middleware(
 def root():
     return {"app": "Trax", "message": "Trax API is running"}
 
+
+
+@app.post("/assistant/chat")
+async def assistant_chat(
+    payload: AssistantChatRequest,
+    db=Depends(get_db),
+):
+    message = payload.message.strip()
+
+    if not message:
+        raise HTTPException(
+            status_code=400,
+            detail="Message cannot be empty",
+        )
+
+    # Fetch live data from the database
+    topics = db.query(Topic).order_by(Topic.id).all()
+    tasks = db.query(Task).order_by(Task.id).all()
+    milestones = db.query(Milestone).order_by(Milestone.id).all()
+
+        # Calculate the current 7-day deadline window
+    now = datetime.now(timezone.utc)
+    seven_days_from_now = now + timedelta(days=7)
+
+    upcoming_tasks = [
+        t
+        for t in tasks
+        if t.due_date is not None
+        and now <= t.due_date <= seven_days_from_now
+    ]
+
+    # Prepare a compact representation of the data
+    workspace = {
+        "topics": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "status": t.status,
+            }
+            for t in topics
+        ],
+        "tasks": [
+            {
+                "id": t.id,
+                "topic_id": t.topic_id,
+                "title": t.title,
+                "description": t.description,
+                "assignee": t.assignee,
+                "status": t.status,
+                "priority": t.priority,
+                "due_date": t.due_date.isoformat() if t.due_date else None,
+            }
+            for t in tasks
+        ],
+
+            "upcoming_tasks_next_7_days": [
+        {
+            "id": t.id,
+            "title": t.title,
+            "status": t.status,
+            "priority": t.priority,
+            "assignee": t.assignee,
+            "due_date": t.due_date.isoformat(),
+            "topic_id": t.topic_id,
+        }
+        for t in upcoming_tasks
+    ],
+
+        "milestones": [
+            {
+                "id": m.id,
+                "topic_id": m.topic_id,
+                "title": m.title,
+                "description": m.description,
+                "status": m.status,
+                "due_date": m.due_date.isoformat() if m.due_date else None,
+            }
+            for m in milestones
+        ],
+    }
+
+    system_prompt = (
+        "You are TraxAssistant, the AI assistant for the user's Trax "
+        "productivity workspace. "
+        "You have access to the current workspace data provided below. "
+        "Use this data as the source of truth when answering questions "
+        "about the user's topics, tasks, milestones, statuses, priorities, "
+        "assignees, and due dates. "
+        "Do not invent or modify workspace data. "
+        "When the user asks for analysis, recommendations, prioritization, "
+        "planning, or summaries, reason over the available workspace data "
+        "and clearly distinguish facts from recommendations. "
+        "You may perform calculations and date reasoning when needed. "
+        "If the workspace data does not contain enough information to "
+        "answer a question, say so instead of guessing. "
+        "You are currently read-only and must never claim to have created, "
+        "updated, or deleted anything. "
+        "Be concise, clear, and practical. "
+        "When recommending what the user should focus on, consider "
+        "overdue tasks first, then tasks due soon, while also considering "
+        "task priority and status. Do not ignore an overdue task merely "
+        "because another task has a later upcoming deadline.\n\n"
+        f"Trax workspace data:\n{workspace}"
+        "Always report task priorities, statuses, and due dates "
+        "exactly as stored in the database. Never change or "
+        "assume these values. Clearly distinguish factual data "
+        "from your own recommendations.\n"
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                "http://localhost:11434/api/chat",
+                json={
+                    "model": "llama3.2:3b",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": system_prompt,
+                        },
+                        {
+                            "role": "user",
+                            "content": message,
+                        },
+                    ],
+                    "stream": False,
+                },
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            return {
+                "reply": result["message"]["content"],
+                "model": result["model"],
+            }
+
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="Ollama is not running. Please start Ollama.",
+        )
+
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504,
+            detail="Ollama took too long to respond.",
+        )
+
+    except httpx.HTTPStatusError:
+        raise HTTPException(
+            status_code=502,
+            detail="Ollama returned an error.",
+        )
 
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):

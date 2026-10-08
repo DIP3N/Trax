@@ -35,3 +35,5 @@ pytest-cov
 psycopg[binary]
 
 python-telegram-bot==22.8
+
+httpx
