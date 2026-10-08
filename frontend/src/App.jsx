@@ -15,6 +15,7 @@ import {
   createMilestone,
   updateMilestone,
   deleteMilestone,
+  sendAssistantMessage,
 } from "./services/api";
 
 function getLocalDate() {
@@ -65,6 +66,17 @@ function App() {
   const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [milestoneTitle, setMilestoneTitle] = useState("");
   const [milestoneError, setMilestoneError] = useState("");
+  const [assistantMessages, setAssistantMessages] = useState([
+    {
+      role: "assistant",
+      content:
+        "Hello! I'm TraxAssistant. Ask me anything, and I'll do my best to help.",
+    },
+  ]);
+
+  const [assistantInput, setAssistantInput] = useState("");
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantError, setAssistantError] = useState("");
 
   const loadDashboard = async () => {
     try {
@@ -945,6 +957,38 @@ function App() {
     );
   };
 
+  const handleAssistantSubmit = async (event) => {
+    event.preventDefault();
+
+    const message = assistantInput.trim();
+    if (!message || assistantLoading) return;
+
+    setAssistantMessages((current) => [
+      ...current,
+      { role: "user", content: message },
+    ]);
+
+    setAssistantInput("");
+    setAssistantError("");
+    setAssistantLoading(true);
+
+    try {
+      const result = await sendAssistantMessage(message);
+
+      setAssistantMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: result.reply,
+        },
+      ]);
+    } catch (err) {
+      setAssistantError(err.message || "Something went wrong.");
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
   return (
     <div className="app layout">
       <aside className="sidebar">
@@ -997,6 +1041,17 @@ function App() {
         >
           ◷ &nbsp; Activity
         </div>
+        <div
+          className={`nav-item ${activeView === "assistant" ? "active" : ""}`}
+          onClick={() => {
+            setActiveView("assistant");
+            setSelectedTopic(null);
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          ✦ &nbsp; TraxAssistant
+        </div>
       </aside>
 
       <main className="main">
@@ -1032,6 +1087,13 @@ function App() {
                 <h1>Activity</h1>
                 <div className="muted">
                   Recent changes across Trax
+                </div>
+              </>
+            ) : activeView === "assistant" ? (
+              <>
+                <h1>TraxAssistant</h1>
+                <div className="muted">
+                  Your AI-powered command centre for Trax
                 </div>
               </>
             ) : (
@@ -1298,6 +1360,96 @@ function App() {
                 })}
               </div>
             )}
+          </section>
+        )}
+
+        {activeView === "assistant" && !selectedTopic && (
+          <section className="panel">
+            <h2>Chat with TraxAssistant</h2>
+            <p className="muted">
+              Your local AI productivity assistant
+            </p>
+
+            <div
+              style={{
+                minHeight: "300px",
+                maxHeight: "500px",
+                overflowY: "auto",
+                padding: "16px",
+                marginTop: "16px",
+                marginBottom: "16px",
+                border: "1px solid #e2e8f0",
+                borderRadius: "10px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              {assistantMessages.map((item, index) => (
+                <div
+                  key={index}
+                  style={{
+                    alignSelf:
+                      item.role === "user" ? "flex-end" : "flex-start",
+                    maxWidth: "80%",
+                    padding: "12px 16px",
+                    borderRadius: "12px",
+                    background:
+                      item.role === "user" ? "#dbeafe" : "#f1f5f9",
+                    color: "#1e293b",
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  <strong>
+                    {item.role === "user" ? "You" : "TraxAssistant"}
+                  </strong>
+                  <div style={{ marginTop: "6px" }}>
+                    {item.content}
+                  </div>
+                </div>
+              ))}
+
+              {assistantLoading && (
+                <p className="muted">TraxAssistant is thinking...</p>
+              )}
+
+              {assistantError && (
+                <p style={{ color: "#dc2626" }}>
+                  {assistantError}
+                </p>
+              )}
+            </div>
+
+            <form
+              onSubmit={handleAssistantSubmit}
+              style={{ display: "flex", gap: "10px" }}
+            >
+              <input
+                type="text"
+                placeholder="Ask TraxAssistant something..."
+                value={assistantInput}
+                onChange={(event) => setAssistantInput(event.target.value)}
+                disabled={assistantLoading}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: "12px",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "8px",
+                }}
+              />
+              <button
+                className="primary"
+                type="submit"
+                disabled={assistantLoading || !assistantInput.trim()}
+              >
+                {assistantLoading ? "Sending..." : "Send"}
+              </button>
+            </form>
+            <p className="muted">
+              Running locally with Ollama
+            </p>
           </section>
         )}
 

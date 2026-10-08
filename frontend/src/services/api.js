@@ -112,3 +112,14 @@ export function deleteMilestone(milestoneId) {
     method: "DELETE",
   });
 }
+
+// TraxAssistant
+export function sendAssistantMessage(message, messages = []) {
+  return apiRequest("/assistant/chat", {
+    method: "POST",
+    body: JSON.stringify({
+      message,
+      messages,
+    }),
+  });
+}
