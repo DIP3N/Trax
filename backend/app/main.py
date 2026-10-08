@@ -24,9 +24,14 @@ from app.schemas.schemas import (
 )
 
 
+class AssistantMessage(BaseModel):
+    role: str
+    content: str
+
+
 class AssistantChatRequest(BaseModel):
     message: str
-
+    messages: list[AssistantMessage] = []
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -175,6 +180,13 @@ async def assistant_chat(
                             "role": "system",
                             "content": system_prompt,
                         },
+                        *[
+                            {
+                                "role": chat_message.role,
+                                "content": chat_message.content,
+                            }
+                            for chat_message in payload.messages
+                        ],
                         {
                             "role": "user",
                             "content": message,

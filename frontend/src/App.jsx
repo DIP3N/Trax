@@ -973,7 +973,7 @@ function App() {
     setAssistantLoading(true);
 
     try {
-      const result = await sendAssistantMessage(message);
+      const result = await sendAssistantMessage(message, assistantMessages);
 
       setAssistantMessages((current) => [
         ...current,
